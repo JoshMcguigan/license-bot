@@ -4,7 +4,7 @@ License bot adds a comment to Reddit submissions that link to any Github reposit
 
 ## Setup
 
-Create a .env file in the root project directory, based off of the .env.example file. 
+Create a `.env` file in the root project directory, based off of the `.env.example` file. 
 
 ```
 // Required on OSX >=10.11
@@ -32,7 +32,9 @@ cargo run
 1. Add Heroku as a git remote `heroku git:remote -a license-bot`
 1. Tell Heroku to use the Rust buildpack `heroku buildpacks:set https://github.com/emk/heroku-buildpack-rust.git`
 1. Push to the Heroku repo `git push heroku master`
+1. Setup the environment variables on Heroku
 1. Setup the heroku scheduler to run `./target/release/license-bot`
+1. Test run the bot with `heroku run ./target/release/license-bot`
 
 * Resouces
     * https://devcenter.heroku.com/articles/scheduler
