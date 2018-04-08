@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Josh Mcguigan <>"]
 
 [dependencies]
-reqwest = "0.8.5"
+curl = "0.4.11"
 time = "0.1"
 dotenv = "0.11.0"
 rawr = { git = "https://github.com/JoshMcguigan/rawr" }

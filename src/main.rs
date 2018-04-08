@@ -1,13 +1,12 @@
 extern crate rawr;
-extern crate reqwest;
 extern crate time;
 extern crate dotenv;
+extern crate curl;
 use rawr::prelude::*;
 use rawr::structures::submission::Submission;
-use reqwest::StatusCode;
+use curl::easy::{Easy, List};
 
 fn main() {
-
     let hours_to_go_back = 2;
     let max_reddit_submissions_to_review = 60;
 
@@ -69,17 +68,18 @@ fn check_repo_for_missing_license(url: String) -> Result<bool, String> {
 
 fn check_for_license(username: &str, repo: &str) -> Result<bool, String> {
     let github_license_url = format!("https://api.github.com/repos/{}/{}/license", username, repo);
-    match reqwest::get(&github_license_url) {
-        Ok(response) => {
-            match response.status() {
-                StatusCode::NotFound => Ok(false),
-                StatusCode::Ok => Ok(true),
-                e => Err(format!("Error {} while retrieving license data from Github", e))
-            }
+    let mut easy = Easy::new();
+    easy.url(&github_license_url).unwrap();
+    let mut list = List::new();
+    list.append("User-Agent: license-bot").unwrap();
+    easy.http_headers(list).unwrap();
+    match easy.perform() {
+        Ok(_) => match easy.response_code() {
+            Ok(status_code) => Ok(status_code>=200 && status_code<=299),
+            Err(e) => {Err(format!("Error {} while retrieving license data from Github", e))}
         },
         Err(e) => {Err(format!("Error {} while retrieving license data from Github", e))}
     }
-
 }
 
 fn find_in_comments<'a, I>(search_text: &str, commentable: I) -> bool
