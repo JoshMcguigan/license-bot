@@ -1,6 +1,6 @@
 # License Bot
 
-License bot adds a comment to Reddit submissions that link to any Github repository which doesn't contain a license file.
+[License bot](https://www.reddit.com/user/license-bot) adds a comment to Reddit submissions that link to any Github repository which doesn't contain a license file.
 
 ## Setup
 
@@ -22,7 +22,9 @@ cargo build
 ##### Local
 
 ```
-cargo run
+// First be sure to complete the setup above
+
+cargo run 
 ```
 
 ##### Heroku
