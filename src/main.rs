@@ -7,8 +7,8 @@ use rawr::structures::submission::Submission;
 use curl::easy::{Easy, List};
 
 fn main() {
-    let hours_to_go_back = 2;
-    let max_reddit_submissions_to_review = 60;
+    let hours_to_go_back = 1;
+    let max_reddit_submissions_to_review = 6;
 
     let reddit_user_agent = dotenv::var("REDDIT_USER_AGENT").unwrap();
     let reddit_username = dotenv::var("REDDIT_USERNAME").unwrap();
@@ -24,7 +24,7 @@ fn main() {
         if reddit_post.created_utc() < time_cutoff {
             break;
         }
-        println!("{}", reddit_post.title());
+        println!("Reviewing post: {}", reddit_post.title());
         match reddit_post.link_url() {
             Some(url) => check_repo(reddit_post, url),
             None => println!(" - Found post with title {} that has no url", reddit_post.title())
@@ -75,7 +75,9 @@ fn check_for_license(username: &str, repo: &str) -> Result<bool, String> {
     easy.http_headers(list).unwrap();
     match easy.perform() {
         Ok(_) => match easy.response_code() {
-            Ok(status_code) => Ok(status_code>=200 && status_code<=299),
+            Ok(200) => Ok(true),
+            Ok(404) => Ok(false),
+            Ok(status_code) => Err(format!("Unexpected status code {} while retrieving license data from Github", status_code)),
             Err(e) => {Err(format!("Error {} while retrieving license data from Github", e))}
         },
         Err(e) => {Err(format!("Error {} while retrieving license data from Github", e))}
