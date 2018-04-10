@@ -15,6 +15,7 @@ fn main() {
     let reddit_password = dotenv::var("REDDIT_PASSWORD").unwrap();
     let reddit_client_id = dotenv::var("REDDIT_CLIENT_ID").unwrap();
     let reddit_client_secret = dotenv::var("REDDIT_CLIENT_SECRET").unwrap();
+    let reddit_read_only = dotenv::var("REDDIT_READ_ONLY").unwrap().eq(&String::from("true"));
 
     let client = RedditClient::new(&reddit_user_agent, PasswordAuthenticator::new(&reddit_client_id, &reddit_client_secret, &reddit_username, &reddit_password));
     let subreddit = client.subreddit("coolgithubprojects");
@@ -26,25 +27,30 @@ fn main() {
         }
         println!("Reviewing post: {}", reddit_post.title());
         match reddit_post.link_url() {
-            Some(url) => check_repo(reddit_post, url),
+            Some(url) => check_repo(reddit_post, url, reddit_read_only),
             None => println!(" - Found post with title {} that has no url", reddit_post.title())
         }
     }
 }
 
-fn check_repo(reddit_post: Submission, url: String){
+fn check_repo(reddit_post: Submission, url: String, reddit_read_only: bool){
     let license_exists = check_repo_for_missing_license(url);
     let license_discussion_found_in_comments = find_in_comments("license", reddit_post.clone());
 
     match (license_exists, license_discussion_found_in_comments) {
-        (Ok(false), false) => post_comment_for_missing_license_file(reddit_post),
+        (Ok(false), false) => post_comment_for_missing_license_file(reddit_post, reddit_read_only),
         (Err(e), _) => println!(" - {} while checking reddit post {}", e, reddit_post.title()),
         _ => {}
     }
 }
 
-fn post_comment_for_missing_license_file(reddit_post: Submission){
+fn post_comment_for_missing_license_file(reddit_post: Submission, reddit_read_only: bool){
     println!(" - Missing license found for post {}", reddit_post.title());
+
+    if reddit_read_only {
+        return;
+    }
+
     reddit_post.reply(&("Thanks for sharing your open source project, but it looks like you haven't specified a license.\n\n".to_owned()+
         &"> When you make a creative work (which includes code), the work is under exclusive copyright by default. Unless you include a license that specifies otherwise, nobody else can use, copy, distribute, or modify your work without being at risk of take-downs, shake-downs, or litigation. Once the work has other contributors (each a copyright holder), “nobody” starts including you.\n\n".to_owned() +
         "[choosealicense.com](https://choosealicense.com/) is a great resource to learn about open source software licensing.")).expect("Posting failed!");
@@ -90,6 +96,7 @@ fn find_in_comments<'a, I>(search_text: &str, commentable: I) -> bool
     for comment in commentable.replies().expect("Could not get replies") {
         let comment_body = comment.body().unwrap();
         if comment_body.to_lowercase().contains(&search_text.to_lowercase()) {
+            println!(" - Found comment discussing license");
             return true;
         }
         if find_in_comments(search_text, comment) {
