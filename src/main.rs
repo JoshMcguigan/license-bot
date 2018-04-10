@@ -18,17 +18,20 @@ fn main() {
     let reddit_read_only = dotenv::var("REDDIT_READ_ONLY").unwrap().eq(&String::from("true"));
 
     let client = RedditClient::new(&reddit_user_agent, PasswordAuthenticator::new(&reddit_client_id, &reddit_client_secret, &reddit_username, &reddit_password));
-    let subreddit = client.subreddit("coolgithubprojects");
-    let new_listing = subreddit.new(ListingOptions::default()).expect("Could not fetch post listing!");
-    for reddit_post in new_listing.take(max_reddit_submissions_to_review) {
-        let time_cutoff = time::now_utc().to_timespec().sec - 60 * 60 * hours_to_go_back;
-        if reddit_post.created_utc() < time_cutoff {
-            break;
-        }
-        println!("Reviewing post: {}", reddit_post.title());
-        match reddit_post.link_url() {
-            Some(url) => check_repo(reddit_post, url, reddit_read_only),
-            None => println!(" - Found post with title {} that has no url", reddit_post.title())
+
+    for subreddit_name in vec!["coolgithubprojects", "programming"]{
+        let subreddit = client.subreddit(subreddit_name);
+        let new_listing = subreddit.new(ListingOptions::default()).expect("Could not fetch post listing!");
+        for reddit_post in new_listing.take(max_reddit_submissions_to_review) {
+            let time_cutoff = time::now_utc().to_timespec().sec - 60 * 60 * hours_to_go_back;
+            if reddit_post.created_utc() < time_cutoff {
+                break;
+            }
+            println!("Reviewing post: {}", reddit_post.title());
+            match reddit_post.link_url() {
+                Some(url) => check_repo(reddit_post, url, reddit_read_only),
+                None => println!(" - Found post with title {} that has no url", reddit_post.title())
+            }
         }
     }
 }
