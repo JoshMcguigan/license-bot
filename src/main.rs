@@ -19,7 +19,7 @@ fn main() {
 
     let client = RedditClient::new(&reddit_user_agent, PasswordAuthenticator::new(&reddit_client_id, &reddit_client_secret, &reddit_username, &reddit_password));
 
-    for subreddit_name in vec!["coolgithubprojects", "programming"]{
+    for subreddit_name in vec!["coolgithubprojects", "programming", "javascript"]{
         let subreddit = client.subreddit(subreddit_name);
         let new_listing = subreddit.new(ListingOptions::default()).expect("Could not fetch post listing!");
         for reddit_post in new_listing.take(max_reddit_submissions_to_review) {
