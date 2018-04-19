@@ -135,7 +135,7 @@ fn check_for_license_in_readme(repo: &Repository) -> Result<bool, String> {
         Ok(mut res) => {
             match res.text() {
                 Ok(text) => {
-                    Ok(text.contains("license"))
+                    Ok(text.to_lowercase().contains(&"license".to_lowercase()))
                 },
                 Err(e) => {Err(format!("Error {} while retrieving readme from Github", e))}
             }
