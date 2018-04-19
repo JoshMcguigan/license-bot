@@ -2,9 +2,11 @@
 name = "license-bot"
 version = "0.1.0"
 authors = ["Josh Mcguigan <>"]
+license = "MIT OR Apache-2.0"
 
 [dependencies]
 curl = "0.3.0"
+reqwest = "0.8.5"
 time = "0.1"
 dotenv = "0.11.0"
-rawr = { git = "https://github.com/JoshMcguigan/rawr" }
+rraw = { git = "https://github.com/JoshMcguigan/rraw", rev = "7652c44" }

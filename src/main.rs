@@ -1,14 +1,11 @@
-extern crate rawr;
+extern crate rraw;
 extern crate time;
 extern crate dotenv;
-extern crate curl;
-use rawr::prelude::*;
-use rawr::structures::submission::Submission;
-use curl::easy::{Easy, List};
+extern crate reqwest;
 
 fn main() {
-    let hours_to_go_back = 1;
-    let max_reddit_submissions_to_review = 6;
+    let hours_to_go_back = 24;
+    let max_reddit_submissions_to_review = 1000;
 
     let reddit_user_agent = dotenv::var("REDDIT_USER_AGENT").unwrap();
     let reddit_username = dotenv::var("REDDIT_USERNAME").unwrap();
@@ -17,92 +14,110 @@ fn main() {
     let reddit_client_secret = dotenv::var("REDDIT_CLIENT_SECRET").unwrap();
     let reddit_read_only = dotenv::var("REDDIT_READ_ONLY").unwrap().eq(&String::from("true"));
 
-    let client = RedditClient::new(&reddit_user_agent, PasswordAuthenticator::new(&reddit_client_id, &reddit_client_secret, &reddit_username, &reddit_password));
+    match rraw::authorize(&reddit_username, &reddit_password, &reddit_client_id, &reddit_client_secret, &reddit_user_agent) {
+        Ok(auth_data) => {
+            for subreddit in vec!["coolgithubprojects", "programming", "javascript"]{
 
-    for subreddit_name in vec!["coolgithubprojects", "programming", "javascript"]{
-        let subreddit = client.subreddit(subreddit_name);
-        let new_listing = subreddit.new(ListingOptions::default()).expect("Could not fetch post listing!");
-        for reddit_post in new_listing.take(max_reddit_submissions_to_review) {
-            let time_cutoff = time::now_utc().to_timespec().sec - 60 * 60 * hours_to_go_back;
-            if reddit_post.created_utc() < time_cutoff {
-                break;
+                match rraw::new(&auth_data.access_token, &reddit_user_agent, subreddit, max_reddit_submissions_to_review) {
+                    Ok(links) => {
+                        for link in links.iter() {
+                            let time_cutoff = time::now_utc().to_timespec().sec - 60 * 60 * hours_to_go_back;
+                            if (link.created_utc as i64) < time_cutoff {
+                                break;
+                            }
+//                            println!("Reviewing post: {}", link.title);
+//                            println!("    - URL: {}", link.url);
+
+                            let repo = get_repo_details_from_url(&link.url);
+
+                            if let Some(repo) = repo {
+
+//                                println!("    - Found Github repository {}/{}", repo.username, repo.repo_name);
+
+                                let license_exists = check_for_license(&repo);
+                                let comments = rraw::comments(&auth_data.access_token, &reddit_user_agent, &link.subreddit, &link.id);
+                                let license_discussion_found_in_comments = match comments {
+                                    Ok(comments) => Ok(find_in_comments("license", comments)),
+                                    Err(e) => Err(e)
+                                };
+
+                                match (license_exists, license_discussion_found_in_comments) {
+                                    (Ok(false), Ok(false)) => {
+                                        println!(" - Missing license found for post {} in subreddit {} with id {}", link.title, link.subreddit, link.id);
+                                        post_comment_for_missing_license_file(&auth_data.access_token, &reddit_user_agent, &link.id, reddit_read_only);
+                                    },
+                                    (Err(e), Ok(_)) => {println!(" - {:?} while checking reddit post {}", e, link.title)},
+                                    (Ok(_), Err(e)) => {println!(" - {:?} while checking reddit post {}", e, link.title)},
+                                    (Err(e1), Err(e2)) => {println!(" - {:?} and {:?} while checking reddit post {}", e1, e2, link.title)},
+                                    _ => {}
+                                }
+                            }
+                        }
+                    },
+                    Err(e) => println!("error = {:?}", e)
+                }
             }
-            println!("Reviewing post: {}", reddit_post.title());
-            match reddit_post.link_url() {
-                Some(url) => check_repo(reddit_post, url, reddit_read_only),
-                None => println!(" - Found post with title {} that has no url", reddit_post.title())
-            }
-        }
-    }
+        },
+        Err(e) => println!("error = {:?}", e)
+    };
+
+
 }
 
-fn check_repo(reddit_post: Submission, url: String, reddit_read_only: bool){
-    let license_exists = check_repo_for_missing_license(url);
-    let license_discussion_found_in_comments = find_in_comments("license", reddit_post.clone());
-
-    match (license_exists, license_discussion_found_in_comments) {
-        (Ok(false), false) => post_comment_for_missing_license_file(reddit_post, reddit_read_only),
-        (Err(e), _) => println!(" - {} while checking reddit post {}", e, reddit_post.title()),
-        _ => {}
-    }
-}
-
-fn post_comment_for_missing_license_file(reddit_post: Submission, reddit_read_only: bool){
-    println!(" - Missing license found for post {}", reddit_post.title());
-
+fn post_comment_for_missing_license_file(access_token: &str, reddit_user_agent: &str, id: &str, reddit_read_only: bool){
     if reddit_read_only {
         return;
     }
 
-    reddit_post.reply(&("Thanks for sharing your open source project, but it looks like you haven't specified a license.\n\n".to_owned()+
+    rraw::reply(access_token, reddit_user_agent, id, &("Thanks for sharing your open source project, but it looks like you haven't specified a license.\n\n".to_owned()+
         &"> When you make a creative work (which includes code), the work is under exclusive copyright by default. Unless you include a license that specifies otherwise, nobody else can use, copy, distribute, or modify your work without being at risk of take-downs, shake-downs, or litigation. Once the work has other contributors (each a copyright holder), “nobody” starts including you.\n\n".to_owned() +
-        "[choosealicense.com](https://choosealicense.com/) is a great resource to learn about open source software licensing.")).expect("Posting failed!");
+        "[choosealicense.com](https://choosealicense.com/) is a great resource to learn about open source software licensing."));
 }
 
-fn check_repo_for_missing_license(url: String) -> Result<bool, String> {
+struct Repository {
+    username: String,
+    repo_name: String,
+}
+
+fn get_repo_details_from_url(url: &str) -> Option<Repository> {
     let github_project_url_prefix = "https://github.com";
     if url.starts_with(github_project_url_prefix) {
         let url_path = url.replace(github_project_url_prefix, "");
         let url_parts = url_path.split("/").collect::<Vec<&str>>();
         let username = url_parts.get(1);
-        let repo = url_parts.get(2);
-        match (username, repo) {
-            (Some(username), Some(repo)) => return check_for_license(username, repo),
-            _ => return Err(format!("URL {} which doesn't follow expected URL pattern", url))
+        let repo_name = url_parts.get(2);
+        match (username, repo_name) {
+            (Some(username), Some(repo_name)) => Some(Repository {username: username.to_string(), repo_name: repo_name.to_string()}),
+            _ => None
         }
     } else {
-        return Err(format!("URL {} which doesn't follow expected URL pattern", url));
+        None
     }
 }
 
-fn check_for_license(username: &str, repo: &str) -> Result<bool, String> {
-    let github_license_url = format!("https://api.github.com/repos/{}/{}/license", username, repo);
-    let mut easy = Easy::new();
-    easy.url(&github_license_url).unwrap();
-    let mut list = List::new();
-    list.append("User-Agent: license-bot").unwrap();
-    easy.http_headers(list).unwrap();
-    match easy.perform() {
-        Ok(_) => match easy.response_code() {
-            Ok(200) => Ok(true),
-            Ok(404) => Ok(false),
-            Ok(status_code) => Err(format!("Unexpected status code {} while retrieving license data from Github", status_code)),
-            Err(e) => {Err(format!("Error {} while retrieving license data from Github", e))}
+fn check_for_license(repo: &Repository) -> Result<bool, String> {
+    let github_license_url = format!("https://api.github.com/repos/{}/{}/license", repo.username, repo.repo_name);
+    let client = reqwest::Client::new();
+    let res = client.get(&github_license_url)
+        .header(reqwest::header::UserAgent::new("User-Agent: license-bot".to_owned()))
+        .send();
+    match res {
+        Ok(res) => match res.status() {
+            reqwest::StatusCode::Ok => Ok(true),
+            reqwest::StatusCode::NotFound => Ok(false),
+            other => Err(format!("Unexpected status code {} while retrieving license data from Github", other))
         },
         Err(e) => {Err(format!("Error {} while retrieving license data from Github", e))}
     }
 }
 
-fn find_in_comments<'a, I>(search_text: &str, commentable: I) -> bool
-    where I: Commentable<'a>
-{
-    for comment in commentable.replies().expect("Could not get replies") {
-        let comment_body = comment.body().unwrap();
-        if comment_body.to_lowercase().contains(&search_text.to_lowercase()) {
+fn find_in_comments(search_text: &str, comments: Vec<rraw::listing::Comment>) -> bool {
+    for comment in comments {
+        if comment.body.to_lowercase().contains(&search_text.to_lowercase()) {
             println!(" - Found comment discussing license");
             return true;
         }
-        if find_in_comments(search_text, comment) {
+        if find_in_comments(search_text, comment.replies) {
             return true;
         }
     }

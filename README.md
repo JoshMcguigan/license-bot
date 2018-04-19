@@ -42,6 +42,18 @@ cargo run
     * https://devcenter.heroku.com/articles/scheduler
     * https://github.com/emk/heroku-buildpack-rust
     
-## Dependencies
+    
+## License
 
-This project is dependant on a forked version of RAWR (Rust API Wrapper for Reddit) in order to allow posting a Reddit comment at the root of a submission after iterating through all of its comments.
+Licensed under either of
+
+ * Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+ * MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+
+at your option.
+
+### Contribution
+
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in the work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any
+additional terms or conditions.
