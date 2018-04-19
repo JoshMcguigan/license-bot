@@ -2,10 +2,11 @@ extern crate rraw;
 extern crate time;
 extern crate dotenv;
 extern crate reqwest;
+extern crate base64;
 
 fn main() {
-    let hours_to_go_back = 24;
-    let max_reddit_submissions_to_review = 1000;
+    let hours_to_go_back = 1;
+    let max_reddit_submissions_to_review = 10;
 
     let reddit_user_agent = dotenv::var("REDDIT_USER_AGENT").unwrap();
     let reddit_username = dotenv::var("REDDIT_USERNAME").unwrap();
@@ -25,14 +26,14 @@ fn main() {
                             if (link.created_utc as i64) < time_cutoff {
                                 break;
                             }
-//                            println!("Reviewing post: {}", link.title);
-//                            println!("    - URL: {}", link.url);
+                            println!("Reviewing post: {}", link.title);
+                            println!("    - URL: {}", link.url);
 
                             let repo = get_repo_details_from_url(&link.url);
 
                             if let Some(repo) = repo {
 
-//                                println!("    - Found Github repository {}/{}", repo.username, repo.repo_name);
+                                println!("    - Found Github repository {}/{}", repo.username, repo.repo_name);
 
                                 let license_exists = check_for_license(&repo);
                                 let comments = rraw::comments(&auth_data.access_token, &reddit_user_agent, &link.subreddit, &link.id);
@@ -74,6 +75,7 @@ fn post_comment_for_missing_license_file(access_token: &str, reddit_user_agent: 
         "[choosealicense.com](https://choosealicense.com/) is a great resource to learn about open source software licensing."));
 }
 
+#[derive(Debug)]
 struct Repository {
     username: String,
     repo_name: String,
@@ -96,6 +98,15 @@ fn get_repo_details_from_url(url: &str) -> Option<Repository> {
 }
 
 fn check_for_license(repo: &Repository) -> Result<bool, String> {
+    match (check_for_license_from_github(repo), check_for_license_in_readme(repo)) {
+        (Ok(a), Ok(b)) => Ok(a||b),
+        (Err(e), Ok(_)) => Err(format!(" - {:?} while checking repo {:?}", e, repo)),
+        (Ok(_), Err(e)) => Err(format!(" - {:?} while checking repo {:?}", e, repo)),
+        (Err(e1), Err(e2)) => Err(format!(" - {:?} and {:?} while checking repo {:?}", e1, e2, repo))
+    }
+}
+
+fn check_for_license_from_github(repo: &Repository) -> Result<bool, String> {
     let github_license_url = format!("https://api.github.com/repos/{}/{}/license", repo.username, repo.repo_name);
     let client = reqwest::Client::new();
     let res = client.get(&github_license_url)
@@ -108,6 +119,28 @@ fn check_for_license(repo: &Repository) -> Result<bool, String> {
             other => Err(format!("Unexpected status code {} while retrieving license data from Github", other))
         },
         Err(e) => {Err(format!("Error {} while retrieving license data from Github", e))}
+    }
+}
+
+fn check_for_license_in_readme(repo: &Repository) -> Result<bool, String> {
+    let github_readme_url = format!("https://api.github.com/repos/{}/{}/readme", repo.username, repo.repo_name);
+    let client = reqwest::Client::new();
+    let mut headers = reqwest::header::Headers::new();
+    headers.set(reqwest::header::UserAgent::new("User-Agent: license-bot".to_owned()));
+    headers.set_raw("Accept", "application/vnd.github.3.raw");
+    let res = client.get(&github_readme_url)
+        .headers(headers)
+        .send();
+    match res {
+        Ok(mut res) => {
+            match res.text() {
+                Ok(text) => {
+                    Ok(text.contains("license"))
+                },
+                Err(e) => {Err(format!("Error {} while retrieving readme from Github", e))}
+            }
+        },
+        Err(e) => {Err(format!("Error {} while retrieving readme from Github", e))}
     }
 }
 
