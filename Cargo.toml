@@ -9,4 +9,4 @@ reqwest = "0.8.5"
 time = "0.1"
 dotenv = "0.11.0"
 base64 = "0.9.0"
-rraw = { git = "https://github.com/JoshMcguigan/rraw", rev = "7652c44" }
+rraw = { git = "https://github.com/JoshMcguigan/rraw", rev = "dd1126b" }

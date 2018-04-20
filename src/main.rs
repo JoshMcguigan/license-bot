@@ -44,8 +44,8 @@ fn main() {
 
                                 match (license_exists, license_discussion_found_in_comments) {
                                     (Ok(false), Ok(false)) => {
-                                        println!(" - Missing license found for post {} in subreddit {} with id {}", link.title, link.subreddit, link.id);
-                                        post_comment_for_missing_license_file(&auth_data.access_token, &reddit_user_agent, &link.id, reddit_read_only);
+                                        println!(" - Missing license found for post {} in subreddit {} with id {}", link.title, link.subreddit, link.name);
+                                        post_comment_for_missing_license_file(&auth_data.access_token, &reddit_user_agent, &link.name, reddit_read_only);
                                     },
                                     (Err(e), Ok(_)) => {println!(" - {:?} while checking reddit post {}", e, link.title)},
                                     (Ok(_), Err(e)) => {println!(" - {:?} while checking reddit post {}", e, link.title)},
