@@ -75,21 +75,25 @@ fn post_comment_for_missing_license_file(access_token: &str, reddit_user_agent: 
         "[choosealicense.com](https://choosealicense.com/) is a great resource to learn about open source software licensing."));
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 struct Repository {
     username: String,
     repo_name: String,
 }
 
 fn get_repo_details_from_url(url: &str) -> Option<Repository> {
-    let github_project_url_prefix = "https://github.com";
+    let github_project_url_prefix = "https://github.com/";
     if url.starts_with(github_project_url_prefix) {
-        let url_path = url.replace(github_project_url_prefix, "");
+        let url_path = url.trim_left_matches(github_project_url_prefix).trim_right_matches("/");
         let url_parts = url_path.split("/").collect::<Vec<&str>>();
-        let username = url_parts.get(1);
-        let repo_name = url_parts.get(2);
+
+        if url_parts.len() != 2 {return None}
+
+        let username = url_parts.get(0);
+        let repo_name = url_parts.get(1);
+
         match (username, repo_name) {
-            (Some(username), Some(repo_name)) => Some(Repository {username: username.to_string(), repo_name: repo_name.trim_right_matches(".git").to_string()}), // remove .git from end of repo name if it was in the URL
+            (Some(username), Some(repo_name)) => Some(Repository {username: username.to_string(), repo_name: repo_name.trim_right_matches(".git").to_string()}),
             _ => None
         }
     } else {
@@ -156,4 +160,44 @@ fn find_in_comments(search_text: &str, comments: Vec<rraw::listing::Comment>) ->
     }
 
     false
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn get_repo_details_from_simple_github_url() {
+        assert_eq!(
+            get_repo_details_from_url("https://github.com/JoshMcguigan/license-bot"),
+            Some(Repository { username: "JoshMcguigan".to_string(), repo_name: "license-bot".to_string() }));
+    }
+
+    #[test]
+    fn get_none_repo_details_from_non_github_url() {
+        assert_eq!(
+            get_repo_details_from_url("https://google.com/JoshMcguigan/license-bot"),
+            None);
+    }
+
+    #[test]
+    fn get_repo_details_from_simple_github_url_stips_trailing_git() {
+        assert_eq!(
+            get_repo_details_from_url("https://github.com/JoshMcguigan/license-bot.git"),
+            Some(Repository { username: "JoshMcguigan".to_string(), repo_name: "license-bot".to_string() }));
+    }
+
+    #[test]
+    fn get_none_repo_details_for_deep_linked_github_url() {
+        assert_eq!(
+            get_repo_details_from_url("https://github.com/JoshMcguigan/license-bot/blob/master/README.md"),
+            None);
+    }
+
+    #[test]
+    fn get_repo_details_from_simple_github_url_with_trailing_slash() {
+        assert_eq!(
+            get_repo_details_from_url("https://github.com/JoshMcguigan/license-bot/"),
+            Some(Repository { username: "JoshMcguigan".to_string(), repo_name: "license-bot".to_string() }));
+    }
 }
