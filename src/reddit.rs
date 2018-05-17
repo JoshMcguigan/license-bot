@@ -1,6 +1,8 @@
 extern crate rraw;
+extern crate dotenv;
 
-pub fn post_comment_for_missing_license_file(access_token: &str, reddit_user_agent: &str, id: &str, reddit_read_only: bool){
+pub fn post_comment_for_missing_license_file(access_token: &str, reddit_user_agent: &str, id: &str){
+    let reddit_read_only = dotenv::var("REDDIT_READ_ONLY").unwrap().eq(&String::from("true"));
     if reddit_read_only {
         return;
     }
