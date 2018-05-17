@@ -35,7 +35,7 @@ pub fn check_for_license(repo: &Repository) -> Result<bool, String> {
     }
 }
 
-pub fn check_for_license_from_github(repo: &Repository) -> Result<bool, String> {
+fn check_for_license_from_github(repo: &Repository) -> Result<bool, String> {
     let github_license_url = format!("https://api.github.com/repos/{}/{}/license", repo.username, repo.repo_name);
     let client = reqwest::Client::new();
     let res = client.get(&github_license_url)
@@ -51,7 +51,7 @@ pub fn check_for_license_from_github(repo: &Repository) -> Result<bool, String> 
     }
 }
 
-pub fn check_for_license_in_readme(repo: &Repository) -> Result<bool, String> {
+fn check_for_license_in_readme(repo: &Repository) -> Result<bool, String> {
     let github_readme_url = format!("https://api.github.com/repos/{}/{}/readme", repo.username, repo.repo_name);
     let client = reqwest::Client::new();
     let mut headers = reqwest::header::Headers::new();
