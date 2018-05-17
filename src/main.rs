@@ -89,7 +89,7 @@ fn get_repo_details_from_url(url: &str) -> Option<Repository> {
         let username = url_parts.get(1);
         let repo_name = url_parts.get(2);
         match (username, repo_name) {
-            (Some(username), Some(repo_name)) => Some(Repository {username: username.to_string(), repo_name: repo_name.to_string()}),
+            (Some(username), Some(repo_name)) => Some(Repository {username: username.to_string(), repo_name: repo_name.trim_right_matches(".git").to_string()}), // remove .git from end of repo name if it was in the URL
             _ => None
         }
     } else {
