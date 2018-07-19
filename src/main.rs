@@ -18,7 +18,7 @@ fn main() {
 
     let auth_data = rraw::authorize(&reddit_username, &reddit_password, &reddit_client_id, &reddit_client_secret, &reddit_user_agent).expect("Failed to login to reddit");
 
-    for subreddit in vec!["coolgithubprojects", "programming", "javascript"]{
+    for subreddit in vec!["coolgithubprojects", "javascript"]{
         review_subreddit(&auth_data.access_token, &reddit_user_agent, subreddit);
     }
 }
